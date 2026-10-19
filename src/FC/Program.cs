@@ -124,7 +124,7 @@ app.MapPost("/api/probe", async (ProbeRequest request, ConfigurationStore config
     {
         runtime.LoginState = "Caducada";
         await alerts.LostAsync(ct);
-        return Results.Unauthorized();
+        return Results.Conflict(new { error = "Sesión de ForoCoches caducada. Vuelve a iniciar sesión desde el panel." });
     }
     catch (Exception ex) when (ex is not OperationCanceledException)
     {
