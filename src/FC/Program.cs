@@ -71,6 +71,18 @@ app.MapPut("/api/config", (BotSettings updated, ConfigurationStore config) =>
 });
 app.MapGet("/api/status", (RuntimeState status) => Results.Ok(status.Snapshot()));
 
+app.MapPost("/api/resume", (ResumeRequest request, ConfigurationStore config, RuntimeState state) =>
+{
+    if (!config.Read().Threads.Any(t => string.Equals(t.Url, request.Url, StringComparison.OrdinalIgnoreCase))
+        || !state.Threads.TryGetValue(request.Url, out var thread))
+        return Results.NotFound();
+    thread.PausedForReview = false;
+    thread.LastError = null;
+    thread.NextCheck = DateTimeOffset.UtcNow.AddMinutes(Math.Max(thread.WaitMinutes, 1));
+    thread.State = "Reprogramado manualmente";
+    return Results.Ok(new { resumed = true });
+});
+
 app.MapPost("/api/login", async (LoginRequest request, ConfigurationStore config,
     ForumBrowser browser, RuntimeState runtime, EmailAlerts alerts, CancellationToken ct) =>
 {
@@ -125,3 +137,4 @@ app.Run();
 
 public sealed record LoginRequest(string Username, string Password);
 public sealed record ProbeRequest(string Url);
+public sealed record ResumeRequest(string Url);
