@@ -62,7 +62,7 @@
   </section>
   <section class="panel">
     <div class="topline"><h2>Estado de los hilos</h2><button class="secondary" id="reload">Actualizar</button></div>
-    <div class="scroll"><table><thead><tr><th>Hilo</th><th>Estado</th><th>Próxima comprobación</th><th>Intervalo</th><th>Error</th></tr></thead><tbody id="rows"><tr><td colspan="5">Cargando…</td></tr></tbody></table></div>
+    <div class="scroll"><table><thead><tr><th>Hilo</th><th>Estado</th><th>Próxima comprobación</th><th>Intervalo</th><th>Error</th><th>Acción</th></tr></thead><tbody id="rows"><tr><td colspan="5">Cargando…</td></tr></tbody></table></div>
   </section>
 </main>
 <script>
@@ -112,11 +112,17 @@ async function loadStatus(){
   try{
     const data=await api('/api/status');$('session').textContent='Sesión: '+data.loginState;
     const tbody=$('rows');tbody.replaceChildren();
-    if(!data.threads.length){const row=tbody.insertRow();const cell=row.insertCell();cell.colSpan=5;cell.textContent='Todavía no hay hilos configurados.';}
+    if(!data.threads.length){const row=tbody.insertRow();const cell=row.insertCell();cell.colSpan=6;cell.textContent='Todavía no hay hilos configurados.';}
     for(const t of data.threads){
       const row=tbody.insertRow();
       const vals=[t.name,t.state,t.nextCheck?new Date(t.nextCheck).toLocaleString('es-ES'):'—',t.waitMinutes+' min',t.lastError||'—'];
       for(const val of vals)row.insertCell().textContent=val;
+      const action=row.insertCell();
+      if(t.pausedForReview){
+        const b=document.createElement('button');b.textContent='Reanudar';b.className='secondary';
+        b.onclick=async()=>{try{await api('/api/resume',{method:'POST',body:JSON.stringify({url:t.url})});await loadStatus();}catch(e){alert(e.message);}};
+        action.appendChild(b);
+      }
     }
   }catch(e){$('session').textContent='Error de conexión';}
 }
