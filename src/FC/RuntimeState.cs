@@ -13,6 +13,7 @@ public sealed class ThreadRuntime
     public DateTimeOffset NextCheck { get; set; }
     public int WaitMinutes { get; set; }
     public string? LastError { get; set; }
+    public bool PausedForReview { get; set; }
 }
 
 public sealed class RuntimeState
@@ -29,7 +30,7 @@ public sealed class RuntimeState
         threads = Threads.Values.OrderBy(x => x.Name).Select(x => new
         {
             x.Name, x.Url, x.State, x.LastPostId, x.LastActivity,
-            x.NextCheck, x.WaitMinutes, x.LastError
+            x.NextCheck, x.WaitMinutes, x.LastError, x.PausedForReview
         }).ToArray()
     };
 }
