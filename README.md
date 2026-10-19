@@ -22,7 +22,7 @@ Servicio ASP.NET Core en C# + Playwright/Chromium para gestionar hilos propios d
 6. Antes de marcar *Automatización activada*, revisar los selectores y probar en hilos propios.
 7. Ver logs: `docker compose logs -f`.
 
-El perfil de Chromium se guarda en el volumen `./data`, que no entra en el repositorio.
+El perfil de Chromium se guarda en el volumen Docker `fc_data`, que no entra en el repositorio. Para copiarlo o hacer una copia de seguridad, utiliza `docker volume` (o `docker cp`).
 
 ## Notas de revisión del proyecto antiguo
 La aplicación original usa CefSharp en Windows, HTML de vBulletin y los selectores `textarea#vB_Editor_QR_textarea`, `#qr_submit`, `a[href^="editpost"]`, `#vB_Editor_QE_1_delete`, `#rb_del_soft` y `#quickedit_dodelete`. También contiene `catch { }` que oculta fallos. No se copia el binario/cache del ZIP ni los datos de sesión antiguos.
