@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>FC · Gestor de hilos</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#15212d;background:#f1f4f8}
+    *{box-sizing:border-box}body{margin:0}.wrap{max-width:1060px;margin:auto;padding:24px}
+    header{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:20px}
+    h1{font-size:26px;margin:0}h2{font-size:19px;margin:0 0 12px}p{color:#5f6b79;line-height:1.5}
+    .panel{background:white;border:1px solid #e0e5eb;border-radius:12px;padding:20px;margin:14px 0;box-shadow:0 2px 9px #0e2b4720}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    label{display:block;font-size:13px;font-weight:650;margin-bottom:6px;color:#354558}
+    input,textarea{width:100%;font:inherit;padding:10px 11px;border:1px solid #aebbc9;border-radius:8px;background:#fff}
+    textarea{min-height:160px;resize:vertical}input[type=checkbox]{width:auto;transform:scale(1.2);margin-right:8px}
+    button{background:#174ea6;color:#fff;border:0;padding:11px 18px;border-radius:8px;font-weight:650;cursor:pointer}
+    button.secondary{background:#edf2fa;color:#1d457f}button:disabled{opacity:.5;cursor:default}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
+    .muted{font-size:13px;color:#657386}.feedback{min-height:22px;font-size:14px;margin:10px 0;color:#1c6b46}
+    .feedback.error{color:#ae3030}.topline{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .pill{display:inline-block;border-radius:20px;background:#edf2fa;color:#355b8b;padding:6px 10px;font-size:12px}
+    table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px;text-align:left;border-bottom:1px solid #e6eaf0}
+    th{color:#667482}td:first-child{font-weight:650;word-break:break-word}.scroll{overflow:auto}
+    .warn{padding:12px;background:#fff8e5;border-left:4px solid #b58b0c;border-radius:5px;color:#705b23;font-size:13px}
+    @media(max-width:700px){.grid{grid-template-columns:1fr}.wrap{padding:12px}header{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <header><div><h1>FC · Gestor de hilos</h1><p class="muted">Panel privado · Chromium/Playwright · Contabo</p></div><span class="pill" id="session">Sesión: comprobando…</span></header>
+  <div class="warn">Primera versión: antes de activar publicaciones, prueba la lectura de un hilo propio. Los selectores de ForoCoches pueden necesitar ajustes. El panel debe accederse por túnel SSH o HTTPS protegido, nunca exponiendo el puerto a Internet.</div>
+  <section class="panel">
+    <h2>Configuración</h2>
+    <div class="grid">
+      <div><label for="forumUser">Nombre de usuario de ForoCoches</label><input id="forumUser" autocomplete="off" placeholder="Tu usuario exacto"></div>
+      <div><label for="zone">Zona horaria</label><input id="zone" value="Europe/Madrid"></div>
+      <div><label for="min">Minutos mínimos</label><input id="min" type="number" min="1" max="1440" value="75"></div>
+      <div><label for="max">Minutos máximos</label><input id="max" type="number" min="1" max="1440" value="90"></div>
+      <div><label for="start">Hora de inicio</label><input id="start" type="time" value="08:00"></div>
+      <div><label for="end">Hora de fin (00:00 = medianoche)</label><input id="end" type="time" value="00:00"></div>
+    </div>
+    <p><label for="threads">Hilos: una línea por hilo, formato <code>Descripción | URL</code></label>
+      <textarea id="threads" placeholder="Mi hilo | https://www.forocoches.com/foro/showthread.php?t=..."></textarea></p>
+    <label><input type="checkbox" id="enabled"> Activar publicaciones automáticas</label>
+    <div class="actions"><button id="save">Guardar configuración</button><button id="probe" class="secondary">Probar lectura del primer hilo (sin publicar)</button></div>
+    <div id="configMessage" class="feedback" role="status"></div>
+  </section>
+  <section class="panel">
+    <h2>Iniciar sesión</h2>
+    <p>Introduce tus credenciales una vez. Solo se envían al servicio del VPS; no se guardan en <code>config.json</code>. Chromium conserva las cookies en su perfil privado.</p>
+    <form id="loginForm">
+      <div class="grid">
+        <div><label for="loginUser">Usuario</label><input id="loginUser" autocomplete="username" required></div>
+        <div><label for="loginPass">Contraseña</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+      </div>
+      <div class="actions"><button type="submit">Iniciar sesión en ForoCoches</button></div>
+    </form>
+    <div id="loginMessage" class="feedback" role="status"></div>
+    <p class="muted">Si la web exige CAPTCHA, 2FA o cambia su formulario, no se intentará sortear la verificación automáticamente.</p>
+  </section>
+  <section class="panel">
+    <div class="topline"><h2>Estado de los hilos</h2><button class="secondary" id="reload">Actualizar</button></div>
+    <div class="scroll"><table><thead><tr><th>Hilo</th><th>Estado</th><th>Próxima comprobación</th><th>Intervalo</th><th>Error</th></tr></thead><tbody id="rows"><tr><td colspan="5">Cargando…</td></tr></tbody></table></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const message = (id,text,error=false) => {$(id).textContent=text;$(id).classList.toggle('error',error);};
+async function api(path,options={}) {
+  const r = await fetch(path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})},cache:'no-store'});
+  let data={};try{data=await r.json();}catch{}
+  if(!r.ok)throw new Error(data.error||data.detail||('HTTP '+r.status));
+  return data;
+}
+async function loadConfig(){
+  const c=await api('/api/config');
+  $('forumUser').value=c.forumUsername||'';$('zone').value=c.timeZone||'Europe/Madrid';
+  $('min').value=c.minMinutes;$('max').value=c.maxMinutes;
+  $('start').value=c.startTime;$('end').value=c.endTime;
+  $('enabled').checked=c.enabled;
+  $('threads').value=(c.threads||[]).map(t=>t.name+' | '+t.url).join('\n');
+  $('loginUser').value=c.forumUsername||'';
+}
+function readConfig(){
+  const threads=$('threads').value.split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{
+    const sep=s.indexOf('|');if(sep<1)throw new Error('Usa el formato Nombre | URL en todas las líneas.');
+    return {name:s.slice(0,sep).trim(),url:s.slice(sep+1).trim()};
+  });
+  return {forumUsername:$('forumUser').value.trim(),timeZone:$('zone').value.trim(),
+    minMinutes:Number($('min').value),maxMinutes:Number($('max').value),
+    startTime:$('start').value,endTime:$('end').value,enabled:$('enabled').checked,threads};
+}
+$('save').onclick=async()=>{
+  $('save').disabled=true;try{await api('/api/config',{method:'PUT',body:JSON.stringify(readConfig())});message('configMessage','Configuración guardada.');}
+  catch(e){message('configMessage',e.message,true);}finally{$('save').disabled=false;}
+};
+$('probe').onclick=async()=>{
+  try{const t=readConfig().threads[0];if(!t)throw new Error('Añade al menos un hilo.');
+    const v=await api('/api/probe',{method:'POST',body:JSON.stringify({url:t.url})});
+    message('configMessage','Lectura correcta: último mensaje #'+v.id+' de '+v.author+' ('+(v.rawDate||'sin fecha')+').');
+  }catch(e){message('configMessage','Error de lectura: '+e.message,true);}
+};
+$('loginForm').onsubmit=async event=>{
+  event.preventDefault();const pass=$('loginPass').value;$('loginPass').value='';
+  try{const result=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('loginUser').value.trim(),password:pass})});
+    message('loginMessage',result.detail||'Respuesta desconocida',!result.success);await loadStatus();
+  }catch(e){message('loginMessage',e.message,true);}
+};
+async function loadStatus(){
+  try{
+    const data=await api('/api/status');$('session').textContent='Sesión: '+data.loginState;
+    const tbody=$('rows');tbody.replaceChildren();
+    if(!data.threads.length){const row=tbody.insertRow();const cell=row.insertCell();cell.colSpan=5;cell.textContent='Todavía no hay hilos configurados.';}
+    for(const t of data.threads){
+      const row=tbody.insertRow();
+      const vals=[t.name,t.state,t.nextCheck?new Date(t.nextCheck).toLocaleString('es-ES'):'—',t.waitMinutes+' min',t.lastError||'—'];
+      for(const val of vals)row.insertCell().textContent=val;
+    }
+  }catch(e){$('session').textContent='Error de conexión';}
+}
+$('reload').onclick=loadStatus;
+loadConfig().catch(e=>message('configMessage',e.message,true));
+loadStatus();setInterval(loadStatus,20000);
+</script>
+</body>
+</html>
