@@ -249,6 +249,12 @@ public sealed class ForumBrowser : IAsyncDisposable
         }
         if (string.IsNullOrWhiteSpace(post.Id) || string.IsNullOrWhiteSpace(post.Author))
             throw new InvalidOperationException("No se puede identificar con seguridad el autor o ID del último post.");
+        // Leer un hilo público no demuestra que la cuenta esté autenticada.
+        // Si no aparece el formulario de respuesta ni un enlace de salida,
+        // detener los UP y pedir al usuario que revise la sesión.
+        if (await page.Locator("textarea#vB_Editor_QR_textarea, #qr_submit").CountAsync() == 0
+            && !await IsLoggedInAsync(page))
+            throw new SessionExpiredException();
         post.PostedAt = ParsePostDate(post.RawDate, timeZone);
         return post;
     }
