@@ -8,7 +8,7 @@ Servicio ASP.NET Core en C# + Playwright/Chromium para gestionar hilos propios d
 - URLs, intervalos mínimo/máximo, horario y zona horaria editables en `/data/config.json`, sin base de datos.
 - Chromium con perfil persistente en `/data/chromium`; inicio de sesión desde el panel (usuario/contraseña enviados solo al backend y **no guardados**).
 - Evaluación del último mensaje, autor y fecha; solo elimina si el autor coincide con el usuario configurado y el texto es exactamente `Up`.
-- Control de diálogos JavaScript y esperas con timeout; errores visibles.
+- Control de diálogos JavaScript y esperas con timeout; errores visibles. Si un borrado o publicación no se puede confirmar, el hilo se pausa hasta que se pulse *Reanudar* desde el panel.
 - Alerta por SMTP al correo configurado cuando se detecta pérdida de una sesión que antes funcionaba, sin reenvíos continuos.
 - Panel web protegido con contraseña de administración y exposición de puerto solo en loopback para acceder con túnel SSH.
 - Arranque tras reinicio mediante `restart: unless-stopped`.
