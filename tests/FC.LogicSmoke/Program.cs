@@ -24,4 +24,8 @@ Check(!ConfigurationStore.IsForumThreadUrl("https://forocoches.com.atacante.ejem
 Check(ForumBrowser.ParsePostDate("Ayer, 12:45", settings.TimeZone).HasValue, "Fecha relativa reconocida");
 Check(ForumBrowser.ParsePostDate("20/10/2026, 12:45", settings.TimeZone).HasValue, "Fecha absoluta reconocida");
 Check(ForumBrowser.ParsePostDate("fecha desconocida", settings.TimeZone) == null, "Fecha desconocida tratada como incierta");
+Check(ForumBrowser.IsOwnUp(new ForumPost { Author = "usuario-test", Text = "Up" }, "usuario-test"), "UP propio exacto: borrar");
+Check(!ForumBrowser.IsOwnUp(new ForumPost { Author = "otro", Text = "Up" }, "usuario-test"), "UP ajeno: no borrar");
+Check(!ForumBrowser.IsOwnUp(new ForumPost { Author = "usuario-test", Text = "UP" }, "usuario-test"), "Mayúsculas incorrectas: no borrar");
+Check(!ForumBrowser.IsOwnUp(new ForumPost { Author = "usuario-test", Text = "Mi respuesta" }, "usuario-test"), "Respuesta propia: no borrar");
 Console.WriteLine("SMOKE OK");
