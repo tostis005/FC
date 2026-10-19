@@ -1,0 +1,25 @@
+services:
+  fc:
+    build: .
+    restart: unless-stopped
+    init: true
+    shm_size: "512mb"
+    env_file:
+      - .env
+    environment:
+      FC_DATA_DIR: /data
+    ports:
+      # Acceso únicamente en el propio VPS; usar túnel SSH.
+      - "127.0.0.1:5088:8080"
+    volumes:
+      - fc_data:/data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  fc_data:
