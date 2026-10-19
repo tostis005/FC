@@ -88,7 +88,7 @@ public sealed class UpWorker : BackgroundService
 
             var now = DateTimeOffset.UtcNow;
             bool changed = status.LastPostId != null && status.LastPostId != post.Id;
-            if (status.FirstObserved == null) status.FirstObserved = now;
+            if (status.FirstObserved == null || changed) status.FirstObserved = now;
             if (changed) status.WaitMinutes = Draw(config);
             status.LastPostId = post.Id;
             status.LastActivity = post.PostedAt ?? now;
