@@ -290,7 +290,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         await _gate.WaitAsync();
         try
         {
-            if (_context != null) await _context.DisposeAsync();
+            if (_context != null) await _context.CloseAsync();
             _playwright?.Dispose();
         }
         finally { _gate.Release(); _gate.Dispose(); }
