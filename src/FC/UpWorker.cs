@@ -44,6 +44,11 @@ public sealed class UpWorker : BackgroundService
                         };
                     });
                     status.Name = thread.Name;
+                    if (status.PausedForReview)
+                    {
+                        status.State = "En pausa: revisión manual";
+                        continue;
+                    }
                     if (!config.Enabled)
                     {
                         status.State = "Automatización desactivada";
@@ -131,7 +136,10 @@ public sealed class UpWorker : BackgroundService
         {
             _log.LogError(ex, "Falló el hilo {Name}", thread.Name);
             status.LastError = ex.Message;
-            status.State = "Error: revisar logs";
+            if (ex.Message.Contains("Publicación no confirmada", StringComparison.Ordinal)
+                || ex.Message.Contains("No se ha confirmado el borrado", StringComparison.Ordinal))
+                status.PausedForReview = true;
+            status.State = status.PausedForReview ? "En pausa: revisión manual" : "Error: revisar logs";
             status.NextCheck = DateTimeOffset.UtcNow.AddMinutes(10);
         }
     }
