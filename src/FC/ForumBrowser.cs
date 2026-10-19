@@ -140,8 +140,7 @@ public sealed class ForumBrowser : IAsyncDisposable
                 if (current.Id != expected.Id)
                     throw new InvalidOperationException("El último mensaje ha cambiado; se cancela el UP.");
 
-                bool isOurUp = string.Equals(current.Author.Trim(), accountUsername.Trim(), StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(current.Text.Trim(), "Up", StringComparison.Ordinal);
+                bool isOurUp = IsOwnUp(current, accountUsername);
                 if (isOurUp)
                 {
                     var table = page.Locator("table[id='post" + current.Id + "']");
@@ -258,6 +257,10 @@ public sealed class ForumBrowser : IAsyncDisposable
         post.PostedAt = ParsePostDate(post.RawDate, timeZone);
         return post;
     }
+
+    public static bool IsOwnUp(ForumPost post, string accountUsername) =>
+        string.Equals(post.Author.Trim(), accountUsername.Trim(), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(post.Text.Trim(), "Up", StringComparison.Ordinal);
 
     public static DateTimeOffset? ParsePostDate(string text, string zoneId)
     {
