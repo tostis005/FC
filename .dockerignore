@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+data
+**/bin
+**/obj
+**/.vs
+*.zip
+*.log
