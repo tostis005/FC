@@ -22,7 +22,7 @@ var expected = SHA256.HashData(Encoding.UTF8.GetBytes(password));
 
 app.Use(async (ctx, next) =>
 {
-    ctx.Response.Headers.CacheControl = "no-store";
+    ctx.Response.Headers["Cache-Control"] = "no-store";
     if (ctx.Request.Path == "/healthz")
     {
         await next();
@@ -47,7 +47,7 @@ app.Use(async (ctx, next) =>
     }
     if (!authorized)
     {
-        ctx.Response.Headers.WWWAuthenticate = "Basic realm=\"FC panel\", charset=\"UTF-8\"";
+        ctx.Response.Headers["WWW-Authenticate"] = "Basic realm=\"FC panel\", charset=\"UTF-8\"";
         ctx.Response.StatusCode = 401;
         await ctx.Response.WriteAsync("Autenticación requerida.");
         return;
