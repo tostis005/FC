@@ -33,11 +33,15 @@ public sealed class UpWorker : BackgroundService
 
                 foreach (var thread in config.Threads)
                 {
-                    var status = _runtime.Threads.GetOrAdd(thread.Url, url => new ThreadRuntime
+                    var status = _runtime.Threads.GetOrAdd(thread.Url, url =>
                     {
-                        Url = url, Name = thread.Name, State = "Programado",
-                        WaitMinutes = Draw(config),
-                        NextCheck = DateTimeOffset.UtcNow.AddMinutes(Draw(config))
+                        var wait = Draw(config);
+                        return new ThreadRuntime
+                        {
+                            Url = url, Name = thread.Name, State = "Programado",
+                            WaitMinutes = wait,
+                            NextCheck = DateTimeOffset.UtcNow.AddMinutes(wait)
+                        };
                     });
                     status.Name = thread.Name;
                     if (!config.Enabled)
