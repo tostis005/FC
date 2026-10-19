@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+data/
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+*.log
+*.zip
+*.dat
+session*.json
+storageState*.json
+chromium/
+playwright/.auth/
