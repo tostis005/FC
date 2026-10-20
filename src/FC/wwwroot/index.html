@@ -57,17 +57,47 @@
     <p class="muted">Por seguridad, si el último mensaje ya es un <code>Up</code> tuyo, la prueba se cancela para evitar duplicados. Si aparece un error después de publicar, comprueba el hilo antes de repetir.</p>
   </section>
   <section class="panel">
-    <h2>Iniciar sesión</h2>
-    <p>Introduce tus credenciales una vez. Solo se envían al servicio del VPS; no se guardan en <code>config.json</code>. Chromium conserva las cookies en su perfil privado.</p>
-    <form id="loginForm">
-      <div class="grid">
-        <div><label for="loginUser">Usuario</label><input id="loginUser" autocomplete="username" required></div>
-        <div><label for="loginPass">Contraseña</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+    <h2>Iniciar sesión con Chromium remoto</h2>
+    <p>Abre el navegador que está dentro de Contabo. Haz clic en los campos de la imagen y usa los controles inferiores para escribir. Las cookies quedan guardadas en el perfil persistente de Chromium; <strong>no se guarda tu contraseña</strong> en la configuración.</p>
+    <div class="warn">Mantén desactivada la automatización mientras usas este navegador. La pantalla es una vista remota: no es un iframe de ForoCoches.</div>
+    <div class="actions">
+      <button id="manualOpen" type="button">Abrir navegador Chromium</button>
+      <button id="manualClose" type="button" class="secondary" disabled>Cerrar navegador (conservar cookies)</button>
+      <button id="manualVerify" type="button" class="secondary" disabled>Comprobar sesión</button>
+    </div>
+    <div id="manualBrowser" hidden>
+      <p class="muted" id="manualUrl">Cargando…</p>
+      <div style="background:#e7eef8;border:1px solid #bdc9d9;border-radius:8px;overflow:hidden;margin:12px 0">
+        <img id="manualImage" alt="Imagen interactiva de Chromium en Contabo; pulsa en la imagen para hacer clic"
+          style="display:block;width:100%;height:auto;cursor:crosshair;min-height:180px">
       </div>
-      <div class="actions"><button type="submit">Iniciar sesión en ForoCoches</button></div>
-    </form>
-    <div id="loginMessage" class="feedback" role="status"></div>
-    <p class="muted">Si la web exige CAPTCHA, 2FA o cambia su formulario, no se intentará sortear la verificación automáticamente.</p>
+      <div class="grid">
+        <div>
+          <label for="manualText">Escribir en el campo seleccionado</label>
+          <input id="manualText" autocomplete="off" placeholder="Haz clic primero en un campo de la imagen">
+          <div class="actions"><button id="manualType" type="button" class="secondary">Escribir texto</button></div>
+        </div>
+        <div>
+          <label for="manualPassword">Escribir contraseña (se borra aquí después)</label>
+          <input id="manualPassword" type="password" autocomplete="off" placeholder="Contraseña de ForoCoches">
+          <div class="actions"><button id="manualTypePassword" type="button" class="secondary">Escribir contraseña</button></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="secondary" type="button" data-browser-key="Tab">Tab</button>
+        <button class="secondary" type="button" data-browser-key="Enter">Enter</button>
+        <button class="secondary" type="button" data-browser-key="Backspace">Borrar</button>
+        <button class="secondary" type="button" data-browser-key="Escape">Esc</button>
+        <button class="secondary" type="button" id="manualScrollUp">Subir</button>
+        <button class="secondary" type="button" id="manualScrollDown">Bajar</button>
+        <button class="secondary" type="button" id="manualRefresh">Recargar</button>
+      </div>
+      <p><label for="manualDestination">Ir a una URL de ForoCoches (opcional)</label>
+        <input id="manualDestination" type="url" value="https://www.forocoches.com/foro/"></p>
+      <div class="actions"><button id="manualGo" type="button" class="secondary">Ir a URL</button></div>
+    </div>
+    <p class="feedback" id="manualMessage" role="status"></p>
+    <p class="muted">Esta función no sortea CAPTCHA ni verificaciones. Si la web requiere una comprobación, inténtala de forma normal desde esta ventana. Cuando acabes, pulsa «Cerrar navegador» y después «Probar lectura del primer hilo».</p>
   </section>
   <section class="panel">
     <div class="topline"><h2>Estado de los hilos</h2><button class="secondary" id="reload">Actualizar</button></div>
@@ -153,5 +183,6 @@ $('reload').onclick=loadStatus;
 loadConfig().catch(e=>message('configMessage',e.message,true));
 loadStatus();setInterval(loadStatus,20000);
 </script>
+<script src="/manual-browser.js" defer></script>
 </body>
 </html>
