@@ -9,6 +9,11 @@ public sealed class SessionExpiredException : Exception
     public SessionExpiredException() : base("La web solicita iniciar sesión en ForoCoches.") { }
 }
 
+public sealed class SecurityChallengeException : Exception
+{
+    public SecurityChallengeException() : base("ForoCoches muestra una verificación de seguridad de Cloudflare. Es necesario resolver el acceso manualmente; no se ha intentado publicar.") { }
+}
+
 public sealed class UncertainWriteException : Exception
 {
     public UncertainWriteException(string message, Exception inner) : base(message, inner) { }
@@ -117,6 +122,8 @@ public sealed partial class ForumBrowser : IAsyncDisposable
             {
                 await page.GotoAsync("https://www.forocoches.com/foro/login.php?do=login",
                     new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+                if (await IsSecurityChallengeAsync(page))
+                    return new LoginResult { Detail = "Cloudflare bloquea la página antes de mostrar el login. No es un error de usuario o contraseña." };
                 var user = page.Locator("input[name='vb_login_username'], input[name='username'], input[autocomplete='username']").First;
                 var pass = page.Locator("input[name='vb_login_password'], input[name='password'], input[type='password']").First;
                 if (await user.CountAsync() == 0 || await pass.CountAsync() == 0)
@@ -125,6 +132,8 @@ public sealed partial class ForumBrowser : IAsyncDisposable
                 await pass.FillAsync(password);
                 await pass.PressAsync("Enter");
                 await page.WaitForTimeoutAsync(1500);
+                if (await IsSecurityChallengeAsync(page))
+                    return new LoginResult { Detail = "Cloudflare solicita una verificación de seguridad. Debes resolverla manualmente antes de iniciar sesión." };
                 if (await IsLoggedInAsync(page))
                     return new LoginResult { Success = true, Detail = "Sesión iniciada correctamente." };
 
@@ -283,6 +292,20 @@ public sealed partial class ForumBrowser : IAsyncDisposable
     private static async Task<bool> IsLoggedInAsync(IPage page) =>
         await page.Locator("a[href*='logout'], a[href*='do=logout']").CountAsync() > 0;
 
+    // La página de desafío no es la página de login y no implica que
+    // la contraseña ni las cookies hayan caducado.
+    private static async Task<bool> IsSecurityChallengeAsync(IPage page)
+    {
+        return await page.EvaluateAsync<bool>(@"() => {
+            const text = ((document.title || '') + ' ' +
+              (document.body?.innerText || '')).slice(0, 5000).toLowerCase();
+            return text.includes('performing security verification') ||
+                   text.includes('checking if the site connection is secure') ||
+                   (text.includes('verify you are human') && text.includes('cloudflare')) ||
+                   !!document.querySelector('iframe[src*=""challenges.cloudflare.com""], input[name=""cf-turnstile-response""]');
+        }");
+    }
+
     private static bool LooksLoggedOut(IPage page) =>
         page.Url.Contains("/accounts/login", StringComparison.OrdinalIgnoreCase)
         || page.Url.Contains("/login.php", StringComparison.OrdinalIgnoreCase);
@@ -292,6 +315,7 @@ public sealed partial class ForumBrowser : IAsyncDisposable
         if (!ConfigurationStore.IsForumThreadUrl(url))
             throw new ArgumentException("Solo URLs HTTPS de ForoCoches.");
         await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+        if (await IsSecurityChallengeAsync(page)) throw new SecurityChallengeException();
         if (LooksLoggedOut(page)) throw new SessionExpiredException();
 
         // Paginación vBulletin: seguir el mayor número de página visible.
@@ -309,6 +333,7 @@ public sealed partial class ForumBrowser : IAsyncDisposable
             if (target != null && ConfigurationStore.IsForumThreadUrl(target))
             {
                 await page.GotoAsync(target, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+                if (await IsSecurityChallengeAsync(page)) throw new SecurityChallengeException();
                 if (LooksLoggedOut(page)) throw new SessionExpiredException();
             }
         }
