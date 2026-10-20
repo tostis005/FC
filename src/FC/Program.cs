@@ -81,6 +81,82 @@ app.MapPut("/api/config", (BotSettings updated, ConfigurationStore config) =>
 });
 app.MapGet("/api/status", (RuntimeState status) => Results.Ok(status.Snapshot()));
 
+app.MapGet("/api/manual/status", async (ForumBrowser browser, CancellationToken ct) =>
+    Results.Ok(await browser.GetManualBrowserStateAsync(ct)));
+
+app.MapPost("/api/manual/open", async (ConfigurationStore settings,
+    ForumBrowser browser, CancellationToken ct) =>
+{
+    if (settings.Read().Enabled)
+        return Results.Conflict(new { error = "Desactiva y guarda la automatización para abrir el navegador manual." });
+    try { return Results.Ok(await browser.OpenManualBrowserAsync(ct)); }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        app.Logger.LogError(ex, "Error al iniciar Chromium manual");
+        return Results.Problem("No se pudo abrir el navegador remoto. Revisa los logs de FC.");
+    }
+});
+
+app.MapGet("/api/manual/frame", async (ForumBrowser browser, CancellationToken ct) =>
+{
+    try { return Results.File(await browser.CaptureManualBrowserAsync(ct), "image/jpeg"); }
+    catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        app.Logger.LogWarning(ex, "No se pudo capturar Chromium");
+        return Results.Problem("No se puede mostrar Chromium. Prueba a cerrar y reabrir la ventana.");
+    }
+});
+
+app.MapPost("/api/manual/action", async (ManualBrowserCommand command,
+    ConfigurationStore settings, ForumBrowser browser, CancellationToken ct) =>
+{
+    if (settings.Read().Enabled)
+        return Results.Conflict(new { error = "Desactiva la automatización antes de controlar Chromium manualmente." });
+    try { return Results.Ok(await browser.PerformManualActionAsync(command, ct)); }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.Conflict(new { error = ex.Message }); }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        app.Logger.LogWarning(ex, "Error de control del navegador manual");
+        return Results.Problem("No se pudo completar la acción del navegador. Comprueba la imagen.");
+    }
+});
+
+app.MapPost("/api/manual/verify", async (ConfigurationStore config, ForumBrowser browser,
+    RuntimeState runtime, EmailAlerts alerts, CancellationToken ct) =>
+{
+    try
+    {
+        var recognized = await browser.CheckManualLoginAsync(
+            config.Read().Threads.FirstOrDefault()?.Url, ct);
+        if (recognized)
+        {
+            runtime.LoginState = "Conectada";
+            await alerts.AuthenticatedAsync();
+        }
+        return Results.Ok(new
+        {
+            authenticated = recognized,
+            detail = recognized
+                ? "Sesión confirmada; las cookies se conservan en el volumen de Docker."
+                : "No se ha podido confirmar con los selectores actuales. La sesión del navegador sigue guardada. Revisa manualmente la pantalla."
+        });
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        app.Logger.LogWarning(ex, "Falló la comprobación de sesión");
+        return Results.Ok(new { authenticated = false, detail = "Comprobación no disponible. Revisa la página y la sesión." });
+    }
+});
+
+app.MapPost("/api/manual/close", async (ForumBrowser browser, CancellationToken ct) =>
+{
+    await browser.CloseManualBrowserAsync(ct);
+    return Results.Ok(new { closed = true });
+});
+
+
 app.MapPost("/api/resume", (ResumeRequest request, ConfigurationStore config, RuntimeState state) =>
 {
     if (!config.Read().Threads.Any(t => string.Equals(t.Url, request.Url, StringComparison.OrdinalIgnoreCase))
