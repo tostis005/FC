@@ -125,6 +125,15 @@ public sealed partial class ForumBrowser : IAsyncDisposable
             var page = await OpenPageAsync();
             try
             {
+                // Chromium gráfico puede no pintar about:blank hasta que exista
+                // contenido: renderizar un documento local, sin peticiones externas.
+                await page.SetContentAsync(
+                    "<!doctype html><html><body style='background:#fff;color:#222'>" +
+                    "<h1 id='browser-ready'>FC - Chromium gráfico activo</h1>" +
+                    "</body></html>",
+                    new PageSetContentOptions { WaitUntil = WaitUntilState.Load });
+                await page.Locator("#browser-ready").WaitForAsync();
+
                 var bytes = await page.ScreenshotAsync(new PageScreenshotOptions
                 {
                     Type = ScreenshotType.Png,
