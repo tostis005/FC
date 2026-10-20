@@ -3,9 +3,10 @@ WORKDIR /source
 COPY src/FC/FC.csproj src/FC/
 RUN dotnet restore src/FC/FC.csproj
 COPY src/FC/ src/FC/
-RUN dotnet publish src/FC/FC.csproj -c Release -o /out --no-restore
+RUN dotnet publish src/FC/FC.csproj -c Release -r linux-x64 --self-contained true -o /out
 
-# Versión alineada con el paquete NuGet Microsoft.Playwright 1.63.0.
+# El binario .NET 8 se publica autocontenido: no depende del runtime .NET 10 de Playwright.
+# La versión de Chromium sigue alineada con Microsoft.Playwright 1.63.0.
 FROM mcr.microsoft.com/playwright/dotnet:v1.63.0-noble
 WORKDIR /app
 COPY --from=build /out/ ./
@@ -17,4 +18,4 @@ USER pwuser
 ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 ENV FC_DATA_DIR=/data
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "FC.dll"]
+ENTRYPOINT ["/app/FC"]
