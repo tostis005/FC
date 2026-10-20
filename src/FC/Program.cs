@@ -52,6 +52,16 @@ app.Use(async (ctx, next) =>
         await ctx.Response.WriteAsync("Autenticación requerida.");
         return;
     }
+    // Evitar que un formulario de otra web active escrituras mientras
+    // el navegador conserve el usuario/contraseña Basic del panel.
+    if (ctx.Request.Path.StartsWithSegments("/api")
+        && (HttpMethods.IsPost(ctx.Request.Method) || HttpMethods.IsPut(ctx.Request.Method))
+        && ctx.Request.Headers["X-FC-Action"].ToString() != "1")
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await ctx.Response.WriteAsync("Falta cabecera de autorización de acción.");
+        return;
+    }
     await next();
 });
 
@@ -81,6 +91,52 @@ app.MapPost("/api/resume", (ResumeRequest request, ConfigurationStore config, Ru
     thread.NextCheck = DateTimeOffset.UtcNow.AddMinutes(Math.Max(thread.WaitMinutes, 1));
     thread.State = "Reprogramado manualmente";
     return Results.Ok(new { resumed = true });
+});
+
+// Prueba puntual: se permite publicar un único Up real con la automatización
+// apagada, en un hilo elegido explícitamente; no se borra ningún mensaje.
+app.MapPost("/api/test-up", async (ProbeRequest request, ConfigurationStore config,
+    ForumBrowser browser, RuntimeState runtime, EmailAlerts alerts, CancellationToken ct) =>
+{
+    var settings = config.Read();
+    if (settings.Enabled)
+        return Results.Conflict(new { error = "Desactiva y guarda la automatización antes de probar un Up manual." });
+    if (!ConfigurationStore.IsForumThreadUrl(request.Url))
+        return Results.BadRequest(new { error = "La URL debe ser HTTPS de ForoCoches." });
+    if (string.IsNullOrWhiteSpace(settings.ForumUsername))
+        return Results.BadRequest(new { error = "Guarda antes tu nombre de usuario de ForoCoches." });
+
+    try
+    {
+        var posted = await browser.PostTestUpAsync(request.Url, settings.ForumUsername,
+            settings.TimeZone, ct);
+        runtime.LoginState = "Conectada";
+        await alerts.AuthenticatedAsync();
+        return Results.Ok(new
+        {
+            success = true,
+            postId = posted.Id,
+            author = posted.Author,
+            text = posted.Text,
+            url = request.Url,
+            detail = "Up de prueba publicado y verificado."
+        });
+    }
+    catch (SessionExpiredException)
+    {
+        runtime.LoginState = "Caducada";
+        await alerts.LostAsync(ct);
+        return Results.Conflict(new { error = "La sesión ha caducado. Inicia sesión de nuevo desde el panel." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(new { error = ex.Message });
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        app.Logger.LogError(ex, "Error o resultado incierto de la prueba manual de Up.");
+        return Results.Problem("Ha fallado la prueba. Comprueba el hilo real ANTES de volver a pulsar.");
+    }
 });
 
 app.MapPost("/api/login", async (LoginRequest request, ConfigurationStore config,
