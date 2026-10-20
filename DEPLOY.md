@@ -20,7 +20,7 @@ Crea el archivo privado de configuración:
 Introduce lo siguiente con tus valores **reales**. No subas este archivo a GitHub ni compartas las credenciales por chat:
 
     FC_ADMIN_PASSWORD=UNA_CONTRASENA_LARGA_ALEATORIA
-    ALERT_EMAIL_TO=2tis005@gmail.com
+    ALERT_EMAIL_TO=hola@elmercadodeorigen.com
     SMTP_HOST=smtp.gmail.com
     SMTP_PORT=587
     SMTP_USER=CORREO_EMISOR@gmail.com
@@ -60,7 +60,14 @@ Verifica la huella contra la del propio VPS, por ejemplo ejecutando allí:
 
 Copia el **contenido íntegro** de known_hosts_fc como secreto. No confíes en una huella no verificada.
 
-Si ya tienes un panel de despliegue que conecta GitHub con tu VPS, puedes optar por esa integración en lugar de GitHub Actions: conecta la rama main, configura el compose.yaml, el fichero .env **solo en el servidor**, el volumen persistente y el puerto de loopback. No son necesarios ambos métodos a la vez.
+## Conviviendo con otros contenedores Docker
+
+**Opción recomendada:** un proyecto Docker Compose independiente para FC, en `~/fc` (sin modificar los proyectos ni contenedores existentes). Docker construirá y ejecutará el servicio `fc` por separado, con su propio volumen persistente de configuración y cookies. Compartirá el sistema Docker del mismo VPS, pero no las carpetas ni el entorno de otros servicios.
+
+- Verifica con `docker ps --format 'table {{.Names}}\t{{.Ports}}'` que el puerto **5088** no está usado. Si está ocupado, cambia **solo el puerto del host**, a la izquierda en `compose.yaml`, p. ej. `127.0.0.1:5099:8080` y usa 5099 en el túnel SSH.
+- No hagas `docker compose down` fuera del directorio `~/fc`, ni `docker system prune --volumes`.
+- Si ya tienes un gestor de contenedores/hosting que conecta GitHub con tu VPS, puedes optar por esa integración **en lugar del workflow de GitHub Actions**, conectando la rama `main`, el archivo `compose.yaml`, y el archivo privado `.env` **solo en el servidor**. No necesitas ejecutar ambos métodos de despliegue.
+- Comprueba que hay memoria y espacio para Chromium/Playwright. Si el VPS es limitado, vigila el consumo de recursos en las primeras pruebas.
 
 ## 3. Enviar código al servidor
 
@@ -115,7 +122,7 @@ Si hay CAPTCHA, 2FA o verificación adicional, debes completarla legítimamente;
 - Para actualizar el código, vuelve a lanzar el mismo workflow.
 - Para cambiar valores de SMTP o contraseña de administrador, edita ~/fc/.env y ejecuta docker compose up -d --force-recreate.
 - **No uses docker compose down -v** si deseas conservar las cookies y la configuración.
-- El aviso a 2tis005@gmail.com se emitirá si se detecta caducidad de una sesión previamente establecida y SMTP funciona.
+- El aviso a hola@elmercadodeorigen.com se emitirá si se detecta caducidad de una sesión previamente establecida y SMTP funciona.
 
 ## Alcance de esta versión
 
