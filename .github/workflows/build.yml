@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run -d --name fc-headed-ci \
+          docker run --init -d --name fc-headed-ci \
             -e FC_ADMIN_PASSWORD=OnlyForAutomatedCi2026 \
             -p 127.0.0.1:5093:8080 fc:ci
           trap 'docker logs fc-headed-ci || true; docker rm -f fc-headed-ci || true' EXIT
@@ -43,6 +43,8 @@ jobs:
           done
           if [ "$ready" -ne 1 ]; then
             echo "FC no pudo arrancar."
+            docker ps -a --filter name=fc-headed-ci
+            docker inspect fc-headed-ci --format 'Estado={{.State.Status}} Error={{.State.Error}} Salida={{.State.ExitCode}}' || true
             exit 1
           fi
           response="$(curl --fail-with-body --silent --show-error \
