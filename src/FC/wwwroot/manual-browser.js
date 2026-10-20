@@ -66,6 +66,20 @@
     }
   };
 
+  get('checkGraphicBrowser').addEventListener('click', async () => {
+    const button = get('checkGraphicBrowser');
+    button.disabled = true;
+    notice('Comprobando que Chromium puede abrir una ventana gráfica…');
+    try {
+      const result = await api('/api/browser/test', { method: 'POST', body: '{}' });
+      notice(result.detail + ' Modo: ' + result.mode + '.');
+    } catch (ex) {
+      notice(ex.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   get('manualOpen').addEventListener('click', async () => {
     get('manualOpen').disabled = true;
     notice('Abriendo Chromium dentro del VPS…');
