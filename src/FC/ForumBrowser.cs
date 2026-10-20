@@ -62,6 +62,29 @@ public sealed class ForumBrowser : IAsyncDisposable
         return _context;
     }
 
+    private async Task ResetContextAsync()
+    {
+        if (_context != null)
+        {
+            try { await _context.CloseAsync(); }
+            catch (Exception ex) { _log.LogWarning(ex, "El contexto Chromium anterior ya se había cerrado."); }
+            _context = null;
+        }
+        _playwright?.Dispose();
+        _playwright = null;
+    }
+
+    // Solo se reintenta abrir una pestaña, antes de cualquier operación de escritura.
+    private async Task<IPage> OpenPageAsync(Func<bool>? acceptDeletion = null)
+    {
+        try { return await NewPageAsync(await ContextAsync(), acceptDeletion); }
+        catch (PlaywrightException)
+        {
+            await ResetContextAsync();
+            return await NewPageAsync(await ContextAsync(), acceptDeletion);
+        }
+    }
+
     private static async Task<IPage> NewPageAsync(IBrowserContext context, Func<bool>? acceptDeletion = null)
     {
         var page = await context.NewPageAsync();
@@ -88,8 +111,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         await _gate.WaitAsync(ct);
         try
         {
-            var context = await ContextAsync();
-            var page = await NewPageAsync(context);
+            var page = await OpenPageAsync();
             try
             {
                 await page.GotoAsync("https://www.forocoches.com/foro/login.php?do=login",
@@ -123,7 +145,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         await _gate.WaitAsync(ct);
         try
         {
-            var page = await NewPageAsync(await ContextAsync());
+            var page = await OpenPageAsync();
             try { return await ReadLastPostAsync(page, url, timeZone); }
             finally { await page.CloseAsync(); }
         }
@@ -147,7 +169,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         await _gate.WaitAsync(ct);
         try
         {
-            var page = await NewPageAsync(await ContextAsync());
+            var page = await OpenPageAsync();
             bool writeMayHaveStarted = false;
             try
             {
@@ -193,7 +215,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         {
             bool deleting = false;
             bool writeMayHaveStarted = false;
-            var page = await NewPageAsync(await ContextAsync(), () => deleting);
+            var page = await OpenPageAsync(() => deleting);
             try
             {
                 var current = await ReadLastPostAsync(page, url, timeZone);
