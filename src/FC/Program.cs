@@ -143,6 +143,11 @@ app.MapPost("/api/manual/verify", async (ConfigurationStore config, ForumBrowser
                 : "No se ha podido confirmar con los selectores actuales. La sesión del navegador sigue guardada. Revisa manualmente la pantalla."
         });
     }
+    catch (SecurityChallengeException)
+    {
+        runtime.LoginState = "Verificación Cloudflare";
+        return Results.Ok(new { authenticated = false, detail = "Cloudflare sigue mostrando la verificación de seguridad; no se ha confirmado el acceso desde Contabo." });
+    }
     catch (Exception ex) when (ex is not OperationCanceledException)
     {
         app.Logger.LogWarning(ex, "Falló la comprobación de sesión");
