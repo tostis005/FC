@@ -155,12 +155,6 @@ $('testUp').onclick=async()=>{
     message('testMessage',e.message+' Verifica el hilo antes de volver a probar.',true);
   }finally{button.disabled=false;}
 };
-$('loginForm').onsubmit=async event=>{
-  event.preventDefault();const pass=$('loginPass').value;$('loginPass').value='';
-  try{const result=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('loginUser').value.trim(),password:pass})});
-    message('loginMessage',result.detail||'Respuesta desconocida',!result.success);await loadStatus();
-  }catch(e){message('loginMessage',e.message,true);}
-};
 async function loadStatus(){
   try{
     const data=await api('/api/status');$('session').textContent='Sesión: '+data.loginState;
