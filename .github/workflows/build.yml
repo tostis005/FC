@@ -17,3 +17,11 @@ jobs:
         run: dotnet build src/FC/FC.csproj --no-restore -c Release
       - name: Logic smoke tests
         run: dotnet run --project tests/FC.LogicSmoke/FC.LogicSmoke.csproj -c Release
+
+  docker:
+    name: Comprobar imagen Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir imagen
+        run: docker build --pull --tag fc:ci .
