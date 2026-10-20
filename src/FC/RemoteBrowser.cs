@@ -26,6 +26,8 @@ public sealed partial class ForumBrowser
             {
                 await page.GotoAsync("https://www.forocoches.com/foro/",
                     new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30000 });
+                if (await IsSecurityChallengeAsync(page))
+                    return new(true, page.Url, "Cloudflare muestra una verificación de seguridad antes del login. Si se repite, el navegador del VPS no tiene acceso autorizado.");
             }
             catch (PlaywrightException ex)
             {
