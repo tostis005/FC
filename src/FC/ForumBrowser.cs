@@ -9,6 +9,11 @@ public sealed class SessionExpiredException : Exception
     public SessionExpiredException() : base("La web solicita iniciar sesión en ForoCoches.") { }
 }
 
+public sealed class UncertainWriteException : Exception
+{
+    public UncertainWriteException(string message, Exception inner) : base(message, inner) { }
+}
+
 public sealed class ForumPost
 {
     public string Id { get; set; } = "";
@@ -143,6 +148,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         try
         {
             var page = await NewPageAsync(await ContextAsync());
+            bool writeMayHaveStarted = false;
             try
             {
                 var before = await ReadLastPostAsync(page, url, timeZone);
@@ -158,6 +164,7 @@ public sealed class ForumBrowser : IAsyncDisposable
 
                 // Única escritura. No hay borrado, no hay reintentos automáticos.
                 await reply.FillAsync("Up");
+                writeMayHaveStarted = true;
                 await submit.ClickAsync();
                 await page.WaitForTimeoutAsync(1200);
 
@@ -168,6 +175,10 @@ public sealed class ForumBrowser : IAsyncDisposable
 
                 _log.LogInformation("UP manual verificado: {Url}, post {Id}", url, after.Id);
                 return after;
+            }
+            catch (Exception ex) when (writeMayHaveStarted && ex is not OperationCanceledException)
+            {
+                throw new UncertainWriteException("El Up de prueba podría haberse publicado. Revisa el hilo antes de repetirlo.", ex);
             }
             finally { await page.CloseAsync(); }
         }
@@ -181,6 +192,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         try
         {
             bool deleting = false;
+            bool writeMayHaveStarted = false;
             var page = await NewPageAsync(await ContextAsync(), () => deleting);
             try
             {
@@ -204,6 +216,7 @@ public sealed class ForumBrowser : IAsyncDisposable
                         await edit.ClickAsync();
                         await page.Locator("#vB_Editor_QE_1_delete").ClickAsync();
                         await page.Locator("#rb_del_soft").CheckAsync();
+                        writeMayHaveStarted = true;
                         await page.Locator("#quickedit_dodelete").ClickAsync();
                         await page.WaitForTimeoutAsync(750);
                     }
@@ -224,6 +237,7 @@ public sealed class ForumBrowser : IAsyncDisposable
                 if (await reply.CountAsync() != 1 || await submit.CountAsync() != 1)
                     throw new SessionExpiredException();
                 await reply.FillAsync("Up");
+                writeMayHaveStarted = true;
                 await submit.ClickAsync();
                 await page.WaitForTimeoutAsync(1200);
                 var posted = await ReadLastPostAsync(page, url, timeZone);
@@ -233,6 +247,10 @@ public sealed class ForumBrowser : IAsyncDisposable
                     throw new InvalidOperationException("Publicación no confirmada; comprobar manualmente antes de reintentar.");
                 _log.LogInformation("UP publicado y verificado en {Url}, post {Id}", url, posted.Id);
                 return posted;
+            }
+            catch (Exception ex) when (writeMayHaveStarted && ex is not OperationCanceledException)
+            {
+                throw new UncertainWriteException("No se ha podido confirmar el resultado de la publicación/borrado. Hilo pausado para revisión manual.", ex);
             }
             finally { await page.CloseAsync(); }
         }
