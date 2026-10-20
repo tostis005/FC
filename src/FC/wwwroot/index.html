@@ -59,8 +59,9 @@
   <section class="panel">
     <h2>Iniciar sesión con Chromium remoto</h2>
     <p>Abre el navegador que está dentro de Contabo. Haz clic en los campos de la imagen y usa los controles inferiores para escribir. Las cookies quedan guardadas en el perfil persistente de Chromium; <strong>no se guarda tu contraseña</strong> en la configuración.</p>
-    <div class="warn">Mantén desactivada la automatización mientras usas este navegador. La pantalla es una vista remota: no es un iframe de ForoCoches.</div>
+    <div class="warn">Chromium se ejecuta con una pantalla virtual (Xvfb); no garantiza superar verificaciones de Cloudflare. Mantén desactivada la automatización mientras usas este navegador. La pantalla es una vista remota: no es un iframe de ForoCoches.</div>
     <div class="actions">
+      <button id="checkGraphicBrowser" type="button" class="secondary">Comprobar Chromium gráfico</button>
       <button id="manualOpen" type="button">Abrir navegador Chromium</button>
       <button id="manualClose" type="button" class="secondary" disabled>Cerrar navegador (conservar cookies)</button>
       <button id="manualVerify" type="button" class="secondary" disabled>Comprobar sesión</button>
