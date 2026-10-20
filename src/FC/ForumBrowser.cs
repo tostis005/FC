@@ -125,6 +125,55 @@ public sealed class ForumBrowser : IAsyncDisposable
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// Envía un único Up manual de prueba. No borra mensajes ni cambia la configuración.
+    /// Solo se invoca desde el panel con la automatización desactivada.
+    /// </summary>
+    public async Task<ForumPost> PostTestUpAsync(string url, string accountUsername,
+        string timeZone, CancellationToken ct)
+    {
+        if (!ConfigurationStore.IsForumThreadUrl(url))
+            throw new ArgumentException("Introduce una URL HTTPS válida de ForoCoches.");
+        if (string.IsNullOrWhiteSpace(accountUsername))
+            throw new ArgumentException("Configura primero el usuario de ForoCoches.");
+
+        // El semáforo evita que dos clics o una revisión automática
+        // manipulen simultáneamente la misma sesión de navegador.
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var page = await NewPageAsync(await ContextAsync());
+            try
+            {
+                var before = await ReadLastPostAsync(page, url, timeZone);
+                if (IsOwnUp(before, accountUsername))
+                    throw new InvalidOperationException(
+                        "El último mensaje ya es tu Up. No se publica otro para evitar duplicados.");
+
+                var reply = page.Locator("textarea#vB_Editor_QR_textarea");
+                var submit = page.Locator("#qr_submit");
+                if (await reply.CountAsync() != 1 || await submit.CountAsync() != 1)
+                    throw new InvalidOperationException(
+                        "No se encuentra el formulario de respuesta. Comprueba la sesión y los selectores.");
+
+                // Única escritura. No hay borrado, no hay reintentos automáticos.
+                await reply.FillAsync("Up");
+                await submit.ClickAsync();
+                await page.WaitForTimeoutAsync(1200);
+
+                var after = await ReadLastPostAsync(page, url, timeZone);
+                if (after.Id == before.Id || !IsOwnUp(after, accountUsername))
+                    throw new InvalidOperationException(
+                        "No se ha podido confirmar el Up de prueba. Comprueba el hilo antes de volver a pulsar.");
+
+                _log.LogInformation("UP manual verificado: {Url}, post {Id}", url, after.Id);
+                return after;
+            }
+            finally { await page.CloseAsync(); }
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task<ForumPost> RefreshUpAsync(string url, ForumPost expected,
         string accountUsername, string timeZone, int minAgeMinutes, CancellationToken ct)
     {
