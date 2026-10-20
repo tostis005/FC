@@ -81,6 +81,17 @@ app.MapPut("/api/config", (BotSettings updated, ConfigurationStore config) =>
 });
 app.MapGet("/api/status", (RuntimeState status) => Results.Ok(status.Snapshot()));
 
+app.MapPost("/api/browser/test", async (ForumBrowser browser, CancellationToken ct) =>
+{
+    try { return Results.Ok(await browser.CheckBrowserAsync(ct)); }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        app.Logger.LogError(ex, "No se ha podido iniciar Chromium gráfico.");
+        return Results.Problem("Chromium gráfico no ha arrancado. Revisa los logs de Docker.");
+    }
+});
+
+
 app.MapGet("/api/manual/status", async (ForumBrowser browser, CancellationToken ct) =>
     Results.Ok(await browser.GetManualBrowserStateAsync(ct)));
 

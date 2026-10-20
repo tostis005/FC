@@ -130,3 +130,21 @@ Los selectores de autenticación, lectura, publicación y borrado proceden del p
 
 ## Acceso público con la IP de Contabo
 Si ya tienes Caddy como proxy (80/443), conserva FC escuchando **solo en 127.0.0.1:5088** y haz que Caddy proxyee el panel por HTTPS a ese puerto, sin exponer Docker directamente. El navegador remoto transmite capturas de pantalla y contraseñas durante el login: **no uses HTTP público**. Protege el panel con FC_ADMIN_PASSWORD y un certificado TLS válido.
+
+## Variante con Chromium gráfico real sobre Xvfb (sin otro VPS)
+
+La imagen Docker inicia automáticamente `xvfb-run` y Playwright usa `Headless = false`. No necesita escritorio Windows, no ocupa puertos nuevos y mantiene el perfil de sesión y la configuración del mismo volumen Docker. El servidor web y Caddy conservan sus puertos.
+
+Para actualizar la instalación existente en Contabo, **únicamente el contenedor de FC**:
+
+    cd ~/fc
+    git pull --ff-only
+    docker compose up -d --build --force-recreate fc
+    docker compose ps
+    docker compose logs --tail=50 fc
+
+En el panel protegido por HTTPS, deja desactivadas las publicaciones automáticas; pulsa «Comprobar Chromium gráfico» para probar la captura de una página local (no accede a ForoCoches). Después abre la ventana Chromium y prueba el login. No hace falta volver a configurar el correo ni cambiar Caddy. No uses `down -v`.
+
+Si en tu VPS fallara el navegador gráfico, comprueba los registros. Se puede volver a **headless** agregando `FC_CHROMIUM_HEADLESS=true` a `~/fc/.env` y ejecutando `docker compose up -d --force-recreate fc`.
+
+**Cloudflare:** disponer de interfaz gráfica no garantiza superar la verificación, porque la IP del VPS sigue siendo la de Contabo. No automatizar ni saltarse desafíos de seguridad; en caso de bloqueo, mantener la automatización desactivada y solicitar acceso autorizado.

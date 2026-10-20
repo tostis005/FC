@@ -54,10 +54,15 @@ public sealed partial class ForumBrowser : IAsyncDisposable
     {
         if (_context != null) return _context; // Todos los llamantes mantienen _gate.
         _playwright ??= await Playwright.CreateAsync();
+        var headless = string.Equals(
+            Environment.GetEnvironmentVariable("FC_CHROMIUM_HEADLESS"),
+            "true", StringComparison.OrdinalIgnoreCase);
+        _log.LogInformation("Iniciando Chromium {Mode} con perfil persistente.",
+            headless ? "headless" : "gráfico (Xvfb)");
         _context = await _playwright.Chromium.LaunchPersistentContextAsync(_profile,
             new BrowserTypeLaunchPersistentContextOptions
             {
-                Headless = true,
+                Headless = headless,
                 AcceptDownloads = false,
                 ViewportSize = new ViewportSize { Width = 1280, Height = 900 },
                 Args = new[] { "--disable-dev-shm-usage" }
@@ -108,6 +113,45 @@ public sealed partial class ForumBrowser : IAsyncDisposable
             catch { /* El diálogo ya puede haber desaparecido al cerrar la página. */ }
         };
         return page;
+    }
+
+    // Comprobación local (about:blank), sin acceder a ForoCoches ni modificar
+    // cookies. Sirve también para probar el arranque gráfico en GitHub Actions.
+    public async Task<BrowserHealthResult> CheckBrowserAsync(CancellationToken ct)
+    {
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var page = await OpenPageAsync();
+            try
+            {
+                // Chromium gráfico puede no pintar about:blank hasta que exista
+                // contenido: renderizar un documento local, sin peticiones externas.
+                await page.SetContentAsync(
+                    "<!doctype html><html><body style='background:#fff;color:#222'>" +
+                    "<h1 id='browser-ready'>FC - Chromium gráfico activo</h1>" +
+                    "</body></html>",
+                    new PageSetContentOptions { WaitUntil = WaitUntilState.Load });
+                await page.Locator("#browser-ready").WaitForAsync();
+
+                var bytes = await page.ScreenshotAsync(new PageScreenshotOptions
+                {
+                    Type = ScreenshotType.Png,
+                    Timeout = 15000
+                });
+                if (bytes.Length == 0)
+                    throw new InvalidOperationException("Chromium no ha podido generar la captura.");
+
+                var headless = string.Equals(
+                    Environment.GetEnvironmentVariable("FC_CHROMIUM_HEADLESS"),
+                    "true", StringComparison.OrdinalIgnoreCase);
+                return new BrowserHealthResult(
+                    true, headless ? "headless" : "gráfico (Xvfb)",
+                    "Chromium ha abierto una pestaña y ha realizado una captura sin visitar ForoCoches.");
+            }
+            finally { await page.CloseAsync(); }
+        }
+        finally { _gate.Release(); }
     }
 
     public async Task<LoginResult> LoginAsync(string username, string password, string? probeThread, CancellationToken ct)
@@ -414,3 +458,5 @@ public sealed partial class ForumBrowser : IAsyncDisposable
         finally { _gate.Release(); _gate.Dispose(); }
     }
 }
+
+public sealed record BrowserHealthResult(bool Ok, string Mode, string Detail);
