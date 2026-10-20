@@ -25,3 +25,30 @@ jobs:
       - uses: actions/checkout@v4
       - name: Construir imagen
         run: docker build --pull --tag fc:ci .
+      - name: Probar arranque y Chromium gráfico dentro de Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name fc-headed-ci \
+            -e FC_ADMIN_PASSWORD=OnlyForAutomatedCi2026 \
+            -p 127.0.0.1:5093:8080 fc:ci
+          trap 'docker logs fc-headed-ci || true; docker rm -f fc-headed-ci || true' EXIT
+          ready=0
+          for i in {1..40}; do
+            if curl --silent --fail http://127.0.0.1:5093/healthz >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "FC no pudo arrancar."
+            exit 1
+          fi
+          response="$(curl --fail-with-body --silent --show-error \
+            --user 'admin:OnlyForAutomatedCi2026' \
+            -H 'X-FC-Action: 1' \
+            -X POST 'http://127.0.0.1:5093/api/browser/test')"
+          echo "$response"
+          echo "$response" | grep -q '"ok":true'
+          echo "Chromium gráfico ha arrancado y generado una captura de about:blank."
