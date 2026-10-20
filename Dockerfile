@@ -17,5 +17,8 @@ ENV HOME=/home/pwuser
 USER pwuser
 ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 ENV FC_DATA_DIR=/data
+# Modo gráfico real en un servidor X virtual, sin publicar puertos X11 ni VNC.
+ENV FC_CHROMIUM_HEADLESS=false
 EXPOSE 8080
-ENTRYPOINT ["/app/FC"]
+# La imagen oficial de Playwright ya incluye Xvfb/xvfb-run.
+ENTRYPOINT ["xvfb-run", "-a", "-s", "-screen 0 1440x900x24 -nolisten tcp", "/app/FC"]
