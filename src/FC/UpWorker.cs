@@ -132,6 +132,14 @@ public sealed class UpWorker : BackgroundService
             await _alerts.LostAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (UncertainWriteException ex)
+        {
+            _log.LogError(ex, "Escritura no verificada en {Name}; se pausa el hilo", thread.Name);
+            status.PausedForReview = true;
+            status.State = "En pausa: revisar en ForoCoches";
+            status.LastError = ex.Message;
+            status.NextCheck = DateTimeOffset.UtcNow.AddMinutes(10);
+        }
         catch (Exception ex)
         {
             _log.LogError(ex, "Falló el hilo {Name}", thread.Name);
