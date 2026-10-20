@@ -130,6 +130,7 @@ public sealed partial class ForumBrowser
         try
         {
             var page = RequireManualPage();
+            if (await IsSecurityChallengeAsync(page)) throw new SecurityChallengeException();
             if (await IsLoggedInAsync(page)) return true;
             if (!ConfigurationStore.IsForumThreadUrl(threadUrl)) return false;
             var probe = await OpenPageAsync();
@@ -139,6 +140,7 @@ public sealed partial class ForumBrowser
                 {
                     WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30000
                 });
+                if (await IsSecurityChallengeAsync(probe)) throw new SecurityChallengeException();
                 if (probe.Url.Contains("login", StringComparison.OrdinalIgnoreCase))
                     return false;
                 return await IsLoggedInAsync(probe) ||
