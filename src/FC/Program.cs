@@ -203,6 +203,11 @@ app.MapPost("/api/test-up", async (ProbeRequest request, ConfigurationStore conf
             detail = "Up de prueba publicado y verificado."
         });
     }
+    catch (SecurityChallengeException)
+    {
+        runtime.LoginState = "Verificación Cloudflare";
+        return Results.Conflict(new { error = "Cloudflare exige una verificación: no se ha publicado ningún Up de prueba." });
+    }
     catch (SessionExpiredException)
     {
         runtime.LoginState = "Caducada";
@@ -256,6 +261,11 @@ app.MapPost("/api/probe", async (ProbeRequest request, ConfigurationStore config
         runtime.LoginState = "Conectada";
         await alerts.AuthenticatedAsync();
         return Results.Ok(post);
+    }
+    catch (SecurityChallengeException)
+    {
+        runtime.LoginState = "Verificación Cloudflare";
+        return Results.Conflict(new { error = "Cloudflare bloquea el acceso al hilo; no es un fallo de contraseña ni de selectores." });
     }
     catch (SessionExpiredException)
     {
