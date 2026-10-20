@@ -29,7 +29,7 @@ public sealed class LoginResult
     public string Detail { get; set; } = "";
 }
 
-public sealed class ForumBrowser : IAsyncDisposable
+public sealed partial class ForumBrowser : IAsyncDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ILogger<ForumBrowser> _log;
@@ -72,6 +72,7 @@ public sealed class ForumBrowser : IAsyncDisposable
         }
         _playwright?.Dispose();
         _playwright = null;
+        _manualPage = null;
     }
 
     // Solo se reintenta abrir una pestaña, antes de cualquier operación de escritura.
