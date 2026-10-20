@@ -1,0 +1,91 @@
+name: Desplegar FC en Contabo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fc-contabo-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Compilar y desplegar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Compilar y probar
+        run: |
+          dotnet restore src/FC/FC.csproj
+          dotnet build src/FC/FC.csproj --no-restore -c Release
+          dotnet run --project tests/FC.LogicSmoke/FC.LogicSmoke.csproj -c Release
+
+      - name: Preparar conexión SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.FC_VPS_HOST }}
+          DEPLOY_USER: ${{ secrets.FC_VPS_USER }}
+          DEPLOY_PORT: ${{ secrets.FC_VPS_PORT }}
+          DEPLOY_KEY: ${{ secrets.FC_VPS_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.FC_VPS_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Falta secret FC_VPS_HOST}"
+          : "${DEPLOY_USER:?Falta secret FC_VPS_USER}"
+          : "${DEPLOY_KEY:?Falta secret FC_VPS_SSH_PRIVATE_KEY}"
+          : "${DEPLOY_KNOWN_HOSTS:?Falta secret FC_VPS_KNOWN_HOSTS}"
+          if [[ ! "$DEPLOY_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$ ]]; then
+            echo "Usuario SSH no válido"
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.:-]+$ ]]; then
+            echo "Host SSH no válido"
+            exit 1
+          fi
+          DEPLOY_PORT="${DEPLOY_PORT:-22}"
+          if [[ ! "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]]; then
+            echo "Puerto SSH no válido"
+            exit 1
+          fi
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/fc-deploy"
+          chmod 600 "$HOME/.ssh/fc-deploy"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          {
+            echo "FC_DEPLOY_HOST=$DEPLOY_HOST"
+            echo "FC_DEPLOY_USER=$DEPLOY_USER"
+            echo "FC_DEPLOY_PORT=$DEPLOY_PORT"
+          } >> "$GITHUB_ENV"
+
+      - name: Subir código y levantar Docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="${FC_DEPLOY_USER}@${FC_DEPLOY_HOST}"
+          ssh_args=(-i "$HOME/.ssh/fc-deploy" -p "$FC_DEPLOY_PORT"
+            -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20)
+          ssh "${ssh_args[@]}" "$remote" 'mkdir -p "$HOME/fc"'
+          tar --exclude='./.git' --exclude='./.env' --exclude='./data' -czf - . \
+            | ssh "${ssh_args[@]}" "$remote" 'tar -xzf - -C "$HOME/fc"'
+          ssh "${ssh_args[@]}" "$remote" '
+            set -eu
+            cd "$HOME/fc"
+            if [ ! -s .env ]; then
+              echo "Falta ~/fc/.env: crealo en el VPS siguiendo DEPLOY.md"
+              exit 1
+            fi
+            docker compose config --quiet
+            docker compose up -d --build --remove-orphans
+            docker compose ps
+          '
