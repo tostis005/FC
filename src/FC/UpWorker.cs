@@ -128,6 +128,17 @@ public sealed class UpWorker : BackgroundService
             status.State = "UP publicado y verificado";
             _log.LogInformation("UP correcto en {Name}", thread.Name);
         }
+        catch (SecurityChallengeException ex)
+        {
+            _log.LogWarning(ex, "Cloudflare impide el acceso al hilo {Name}", thread.Name);
+            status.State = "Bloqueado por verificación Cloudflare";
+            status.LastError = ex.Message;
+            status.PausedForReview = true;
+            status.NextCheck = DateTimeOffset.UtcNow.AddMinutes(10);
+            _runtime.LoginState = "Verificación de seguridad pendiente";
+            // Una comprobación antibots no demuestra que la sesión haya caducado.
+            // No lanzar una alerta de contraseña o sesión perdida.
+        }
         catch (SessionExpiredException)
         {
             status.State = "Sesión caducada";
