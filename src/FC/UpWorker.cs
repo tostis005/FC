@@ -49,6 +49,11 @@ public sealed class UpWorker : BackgroundService
                         status.State = "En pausa: revisión manual";
                         continue;
                     }
+                    if (_forum.IsManualBrowserOpen)
+                    {
+                        status.State = "Navegador manual abierto: automatización en pausa";
+                        continue;
+                    }
                     if (!config.Enabled)
                     {
                         status.State = "Automatización desactivada";

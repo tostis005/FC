@@ -107,7 +107,7 @@ Inicia sesión con:
 
 1. En Configuración indica el nombre de usuario exacto de ForoCoches, el intervalo aleatorio y el horario (por ejemplo 08:00–00:00, Europe/Madrid). Guarda.
 2. Deja **desactivada** la casilla «Activar publicaciones automáticas» y guarda.
-3. Inicia sesión en ForoCoches desde el panel. El navegador Chromium conserva las cookies en un volumen Docker.
+3. Pulsa **Abrir navegador Chromium** con la automatización desactivada. Verás la página de ForoCoches dentro del panel: pulsa en el campo Usuario de la imagen y escribe desde «Escribir texto»; pulsa en el campo Contraseña de la imagen y usa «Escribir contraseña». Utiliza los botones Enter, Tab, Desplazar y Recargar si los necesitas. Después pulsa «Comprobar sesión» y **Cerrar navegador (conservar cookies)**. Se guardan en el volumen Docker, incluso si el servicio se reinicia. Si ForoCoches pide verificaciones adicionales, complétalas manualmente cuando sea posible.
 4. Pulsa «Probar lectura del primer hilo» para confirmar que reconoce el último comentario **sin publicar nada**.
 5. En «Publicar un Up de prueba», pega la URL de **un hilo propio**. Confirma. Publicará **un solo mensaje real** de texto exacto Up. No borrará mensajes anteriores ni iniciará ciclos automáticos.
 6. Comprueba directamente en ForoCoches que el mensaje se ha publicado. Si la web indica «no confirmado» o da error, **revisa el hilo antes de reintentar**. La prueba rechaza duplicar un Up propio si ya es el último mensaje.
@@ -127,3 +127,6 @@ Si hay CAPTCHA, 2FA o verificación adicional, debes completarla legítimamente;
 ## Alcance de esta versión
 
 Los selectores de autenticación, lectura, publicación y borrado proceden del proyecto antiguo con CefSharp y pueden haber cambiado en ForoCoches. La compilación y las pruebas de lógica no sustituyen una validación con la web real. Por seguridad, no habilites la automatización hasta comprobar que el Up manual se publica correctamente. Verifica también las reglas de uso del foro antes de automatizar mensajes repetitivos.
+
+## Acceso público con la IP de Contabo
+Si ya tienes Caddy como proxy (80/443), conserva FC escuchando **solo en 127.0.0.1:5088** y haz que Caddy proxyee el panel por HTTPS a ese puerto, sin exponer Docker directamente. El navegador remoto transmite capturas de pantalla y contraseñas durante el login: **no uses HTTP público**. Protege el panel con FC_ADMIN_PASSWORD y un certificado TLS válido.
