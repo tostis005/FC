@@ -48,6 +48,15 @@
     <div id="configMessage" class="feedback" role="status"></div>
   </section>
   <section class="panel">
+    <h2>Publicar un Up de prueba</h2>
+    <p>Introduce la URL de <strong>un hilo propio</strong>. Esta prueba <strong>publica de verdad</strong> el texto exacto <code>Up</code>, pero no borra nada, no espera los minutos aleatorios y no activa la automatización. Debes desactivar y guardar primero la automatización.</p>
+    <label for="testUrl">URL del hilo donde probar</label>
+    <input id="testUrl" type="url" placeholder="https://www.forocoches.com/foro/showthread.php?t=..." autocomplete="off">
+    <div class="actions"><button id="testUp" type="button">Publicar Up de prueba</button></div>
+    <div id="testMessage" class="feedback" role="status"></div>
+    <p class="muted">Por seguridad, si el último mensaje ya es un <code>Up</code> tuyo, la prueba se cancela para evitar duplicados. Si aparece un error después de publicar, comprueba el hilo antes de repetir.</p>
+  </section>
+  <section class="panel">
     <h2>Iniciar sesión</h2>
     <p>Introduce tus credenciales una vez. Solo se envían al servicio del VPS; no se guardan en <code>config.json</code>. Chromium conserva las cookies en su perfil privado.</p>
     <form id="loginForm">
@@ -62,14 +71,14 @@
   </section>
   <section class="panel">
     <div class="topline"><h2>Estado de los hilos</h2><button class="secondary" id="reload">Actualizar</button></div>
-    <div class="scroll"><table><thead><tr><th>Hilo</th><th>Estado</th><th>Próxima comprobación</th><th>Intervalo</th><th>Error</th><th>Acción</th></tr></thead><tbody id="rows"><tr><td colspan="5">Cargando…</td></tr></tbody></table></div>
+    <div class="scroll"><table><thead><tr><th>Hilo</th><th>Estado</th><th>Próxima comprobación</th><th>Intervalo</th><th>Error</th><th>Acción</th></tr></thead><tbody id="rows"><tr><td colspan="6">Cargando…</td></tr></tbody></table></div>
   </section>
 </main>
 <script>
 const $ = id => document.getElementById(id);
 const message = (id,text,error=false) => {$(id).textContent=text;$(id).classList.toggle('error',error);};
 async function api(path,options={}) {
-  const r = await fetch(path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})},cache:'no-store'});
+  const r = await fetch(path,{...options,headers:{'Content-Type':'application/json','X-FC-Action':'1',...(options.headers||{})},cache:'no-store'});
   let data={};try{data=await r.json();}catch{}
   if(!r.ok)throw new Error(data.error||data.detail||('HTTP '+r.status));
   return data;
@@ -101,6 +110,20 @@ $('probe').onclick=async()=>{
     const v=await api('/api/probe',{method:'POST',body:JSON.stringify({url:t.url})});
     message('configMessage','Lectura correcta: último mensaje #'+v.id+' de '+v.author+' ('+(v.rawDate||'sin fecha')+').');
   }catch(e){message('configMessage','Error de lectura: '+e.message,true);}
+};
+$('testUp').onclick=async()=>{
+  const url=$('testUrl').value.trim();
+  if(!url){message('testMessage','Introduce la URL del hilo.',true);return;}
+  if(!confirm('Se publicará un mensaje real con el texto exacto Up en este hilo. ¿Confirmas?'))return;
+  const button=$('testUp');button.disabled=true;
+  message('testMessage','Realizando una única prueba…');
+  try{
+    const r=await api('/api/test-up',{method:'POST',body:JSON.stringify({url})});
+    message('testMessage','Up publicado correctamente. ID del mensaje: '+r.postId+'. Abre el hilo para verificarlo.');
+    await loadStatus();
+  }catch(e){
+    message('testMessage',e.message+' Verifica el hilo antes de volver a probar.',true);
+  }finally{button.disabled=false;}
 };
 $('loginForm').onsubmit=async event=>{
   event.preventDefault();const pass=$('loginPass').value;$('loginPass').value='';
